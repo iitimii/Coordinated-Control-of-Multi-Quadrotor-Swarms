@@ -1,4 +1,4 @@
-# Continuous but not differentiable
+# TODO track the trajectory (a_des - a) + kd(v_des - v) + kp(p_des - p) = 0
 
 import time
 
@@ -13,6 +13,7 @@ from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
 from pid_controller import DSLPIDControl
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
+from trajGen3D import get_helix_waypoints, get_MST_coefficients, generate_trajectory
 
 DEFAULT_DRONES = DroneModel("cf2x")
 DEFAULT_NUM_DRONES = 1
@@ -24,7 +25,7 @@ DEFAULT_USER_DEBUG_GUI = False
 DEFAULT_OBSTACLES = False
 DEFAULT_SIMULATION_FREQ_HZ = 240
 DEFAULT_CONTROL_FREQ_HZ = 48
-DEFAULT_DURATION_SEC = 40
+DEFAULT_DURATION_SEC = 10
 DEFAULT_OUTPUT_FOLDER = 'results'
 DEFAULT_COLAB = False
 
@@ -47,9 +48,11 @@ def run(
     INIT_XYZS = np.array([[0, 0, 0]])
     INIT_RPYS = np.array([[0, 0, 0]])
 
-    TARGET_POS = np.array([[1.8, 1.2, 0.9], [1.5, -1.7, 0.5], [0.3, 1.9, 1.2], [-2, 0.8, 1.7], [1.8, 1.2, 0.9]])
+    TARGET_WAYPOINTS = np.array([[1.8, 1.2, 0.9], [1.5, -1.7, 0.5], [0.3, 1.9, 1.2], [-2, 0.8, 1.7], [1.8, 1.2, 0.9]])
     TARGET_RPY = np.array([[0, 0, 0]])
-    position_counter = 0
+
+    coeff_x, coeff_y, coeff_z = get_MST_coefficients(TARGET_WAYPOINTS)
+    v = 2.0
 
     env = CtrlAviary(drone_model=drone,
                         num_drones=num_drones,
@@ -86,21 +89,22 @@ def run(
     for i in range(0, int(duration_sec*env.CTRL_FREQ)):
         obs, reward, terminated, truncated, info = env.step(action)
 
+        t = i/env.CTRL_FREQ
+        state = generate_trajectory(t, v, TARGET_WAYPOINTS, coeff_x, coeff_y, coeff_z)
+
         for j in range(num_drones):
-            if np.linalg.norm(obs[j, 0:3] - TARGET_POS[position_counter, :]) < 0.2:
-                if position_counter < len(TARGET_POS)-1:
-                    position_counter += 1
             action[j,:], _, _ = ctrl[j].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
                                                                 state=obs[j],
-                                                                target_pos=TARGET_POS[position_counter, :],
-                                                                target_rpy=TARGET_RPY[j, :])
+                                                                target_pos=state.pos,
+                                                                target_vel=state.vel,
+                                                                target_rpy=TARGET_RPY[j, :]) # TODO Control all pos, vel, acc, yaw, yaw_dot desired states 
             
         #### Log the simulation ####################################
         for j in range(num_drones):
             logger.log(drone=j,
                     timestamp=i/env.CTRL_FREQ,
                     state=obs[j],
-                    control=np.hstack([TARGET_POS[position_counter, :], TARGET_RPY[j, :], np.zeros(6)])
+                    control=np.hstack([state.pos, TARGET_RPY[j, :], np.zeros(6)])
                     )
             
         env.render()
@@ -111,7 +115,7 @@ def run(
     env.close()
 
     logger.save()
-    logger.save_as_csv("position_control")
+    logger.save_as_csv("min_snap")
 
     if plot:
         logger.plot()

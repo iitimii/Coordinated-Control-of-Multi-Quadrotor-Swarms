@@ -1,12 +1,3 @@
-# Generate the position, velocity, (acceleration, jerk, snap)* profiles
-# Use a position or velocity controller to track the trajectory
-# Take into account the model of a quadrotor
-
-import numpy as np
-import cvxpy as cp
-import matplotlib.pyplot as plt
-import control as ct
-
 # """
 # author: Peter Huang
 # email: hbd730@gmail.com
