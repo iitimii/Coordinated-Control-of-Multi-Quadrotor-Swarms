@@ -10,7 +10,7 @@ import pybullet_data
 from gym_pybullet_drones.utils.enums import DroneModel, Physics
 from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
 # from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
-from pid_controller import DSLPIDControl
+from controllers.pid_controller import DSLPIDControl
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
 from trajGen3D import get_helix_waypoints, get_MST_coefficients, generate_trajectory
@@ -49,10 +49,13 @@ def run(
     INIT_RPYS = np.array([[0, 0, 0]])
 
     TARGET_WAYPOINTS = np.array([[1.8, 1.2, 0.9], [1.5, -1.7, 0.5], [0.3, 1.9, 1.2], [-2, 0.8, 1.7], [1.8, 1.2, 0.9]])
+    TARGET_WAYPOINTS = np.array([[-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1],
+                                [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1], 
+                                [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1]])
     TARGET_RPY = np.array([[0, 0, 0]])
 
     coeff_x, coeff_y, coeff_z = get_MST_coefficients(TARGET_WAYPOINTS)
-    v = 2.0
+    v = 1.0
 
     env = CtrlAviary(drone_model=drone,
                         num_drones=num_drones,
