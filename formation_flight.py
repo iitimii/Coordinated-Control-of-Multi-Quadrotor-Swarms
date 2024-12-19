@@ -45,19 +45,14 @@ def run(
         colab=DEFAULT_COLAB
         ):
 
-    H = .1
-    H_STEP = .05
-    R = 1.3
-    INIT_XYZS = np.array([[R*np.cos((i/6)*2*np.pi+np.pi/2), R*np.sin((i/6)*2*np.pi+np.pi/2)-R, H+i*H_STEP] for i in range(num_drones)])
-    INIT_RPYS = np.array([[0, 0,  i * (np.pi/2)/num_drones] for i in range(num_drones)])
 
-    #### Initialize a circular trajectory ######################
-    PERIOD = 10
-    NUM_WP = control_freq_hz*PERIOD
-    TARGET_POS = np.zeros((NUM_WP,3))
-    for i in range(NUM_WP):
-        TARGET_POS[i, :] = R*np.cos((i/NUM_WP)*(2*np.pi)+np.pi/2)+INIT_XYZS[0, 0], R*np.sin((i/NUM_WP)*(2*np.pi)+np.pi/2)-R+INIT_XYZS[0, 1], 0
-    wp_counters = np.array([int((i*NUM_WP/6)%NUM_WP) for i in range(num_drones)])
+    R = 1.3
+    d = 0.5
+    INIT_XYZS = np.array([[0, i*d, 0] for i in range(num_drones)]) # shape(num_drones, 3)
+    INIT_RPYS = np.array([[0, 0,  0] for i in range(num_drones)])
+
+    target_xyzs = np.array([[0, i*d, 1] for i in range(num_drones)])
+    target_rpys = np.array([[0, 0, 0] for i in range(num_drones)])
 
     env = CtrlAviary(drone_model=drone,
                         num_drones=num_drones,
@@ -83,26 +78,27 @@ def run(
     if drone in [DroneModel.CF2X, DroneModel.CF2P]:
         ctrl = [DSLPIDControl(drone_model=drone) for i in range(num_drones)]
 
+    adjacency_matrix = np.ones((num_drones, num_drones)) - np.eye(num_drones)
+
     action = np.zeros((num_drones,4))
     START = time.time()
     for i in range(0, int(duration_sec*env.CTRL_FREQ)):
         obs, reward, terminated, truncated, info = env.step(action)
+        target_xyzs = consensus(obs) 
+
+
         for j in range(num_drones):
             action[j, :], _, _ = ctrl[j].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
                                                                     state=obs[j],
-                                                                    target_pos=np.hstack([TARGET_POS[wp_counters[j], 0:2], INIT_XYZS[j, 2]]),
-                                                                    target_rpy=INIT_RPYS[j, :]
+                                                                    target_pos=target_xyzs[j, :],
+                                                                    target_rpy=target_rpys[j, :]
                                                                     )
-
-        #### Go to the next way point and loop #####################
-        for j in range(num_drones):
-            wp_counters[j] = wp_counters[j] + 1 if wp_counters[j] < (NUM_WP-1) else 0
 
         for j in range(num_drones):
             logger.log(drone=j,
                        timestamp=i/env.CTRL_FREQ,
                        state=obs[j],
-                       control=np.hstack([TARGET_POS[wp_counters[j], 0:2], INIT_XYZS[j, 2], INIT_RPYS[j, :], np.zeros(6)])
+                       control=np.hstack((target_xyzs[j, :], target_rpys[j, :], np.zeros(6)))
                        )
 
         env.render()
@@ -115,6 +111,11 @@ def run(
     logger.save_as_csv("formation_flight")
     if plot:
         logger.plot()
+
+def consensus(current_states):
+    d = 2
+    target_xyzs = np.array([[2*np.sin(time.time()), i*d, 1] for i in range(DEFAULT_NUM_DRONES)])
+    return target_xyzs
 
 if __name__ == "__main__":
     run()

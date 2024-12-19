@@ -12,7 +12,7 @@ from controllers.pid_controller import DSLPIDControl
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
 
-DEFAULT_DRONES = DroneModel("cf2x")
+DEFAULT_DRONES = DroneModel("racer")
 DEFAULT_NUM_DRONES = 1
 DEFAULT_PHYSICS = Physics("pyb")
 DEFAULT_GUI = True
@@ -73,7 +73,7 @@ def run(
                     )
     
     #### Initialize the controllers ############################
-    if drone in [DroneModel.CF2X, DroneModel.CF2P]:
+    if drone in [DroneModel.CF2X, DroneModel.CF2P, DroneModel.RACE]:
         ctrl = [DSLPIDControl(drone_model=drone) for i in range(num_drones)]
 
     
