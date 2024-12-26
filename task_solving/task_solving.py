@@ -98,9 +98,11 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER):
         debug_image=False,
     )
 
-    model = PPO('MlpPolicy', train_env,
+    model = PPO('MultiInputPolicy', train_env,
                 # tensorboard_log=filename+'/tb/',
                 verbose=1)
+    
+    model.learn(10)
 
     test_env.reset()
     action = np.array([[0, 0, 0.1, 0]])  # shape (1,4) x,y,z,yaw

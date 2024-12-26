@@ -9,14 +9,12 @@ import pybullet_data
 
 from gym_pybullet_drones.utils.enums import DroneModel, Physics
 from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
-# from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
-from controllers.pid_controller import DSLPIDControl
-from controllers.lqr_controller_euler import LQRControl
+from controllers.lqr import LQRControl
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
-from trajGen3D import get_helix_waypoints, get_MST_coefficients, generate_trajectory
+from trajectory_tracking.trajGen3D import get_helix_waypoints, get_MST_coefficients, generate_trajectory
 
-DEFAULT_DRONES = DroneModel("cf2x")
+DEFAULT_DRONES = DroneModel("racer")
 DEFAULT_NUM_DRONES = 1
 DEFAULT_PHYSICS = Physics("pyb")
 DEFAULT_GUI = True
@@ -26,7 +24,7 @@ DEFAULT_USER_DEBUG_GUI = False
 DEFAULT_OBSTACLES = False
 DEFAULT_SIMULATION_FREQ_HZ = 240
 DEFAULT_CONTROL_FREQ_HZ = 48
-DEFAULT_DURATION_SEC = 10
+DEFAULT_DURATION_SEC = 30
 DEFAULT_OUTPUT_FOLDER = 'results'
 DEFAULT_COLAB = False
 
@@ -46,13 +44,13 @@ def run(
         colab=DEFAULT_COLAB
         ):
 
-    INIT_XYZS = np.array([[0, 0, 0]])
+    INIT_XYZS = np.array([[0, 0, 1]])
     INIT_RPYS = np.array([[0, 0, 0]])
 
     TARGET_WAYPOINTS = np.array([[1.8, 1.2, 0.9], [1.5, -1.7, 0.5], [0.3, 1.9, 1.2], [-2, 0.8, 1.7], [1.8, 1.2, 0.9]])
-    # TARGET_WAYPOINTS = np.array([[-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1],
-    #                             [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1], 
-    #                             [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1]])
+    TARGET_WAYPOINTS = np.array([[-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1],
+                                [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1], 
+                                [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1]])
     TARGET_RPY = np.array([[0, 0, 0]])
 
     coeff_x, coeff_y, coeff_z = get_MST_coefficients(TARGET_WAYPOINTS)
@@ -83,7 +81,7 @@ def run(
                     )
     
     #### Initialize the controllers ############################
-    if drone in [DroneModel.CF2X, DroneModel.CF2P]:
+    if drone in [DroneModel.CF2X, DroneModel.CF2P, DroneModel.RACE]:
         ctrl = [LQRControl(drone_model=drone) for i in range(num_drones)]
 
     

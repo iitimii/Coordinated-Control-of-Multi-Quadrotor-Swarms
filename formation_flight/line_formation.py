@@ -1,21 +1,23 @@
+import os
 import time
-
+import argparse
+from datetime import datetime
+import pdb
+import math
+import random
 import numpy as np
 import pybullet as p
 import matplotlib.pyplot as plt
-import pybullet_data
 
 from gym_pybullet_drones.utils.enums import DroneModel, Physics
 from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
-# from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
 from controllers.pid_controller import DSLPIDControl
-# from controllers.lqr_controller_euler import LQRControl
-from controllers.lqr import LQRControl
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
 
+
 DEFAULT_DRONES = DroneModel("cf2x")
-DEFAULT_NUM_DRONES = 1
+DEFAULT_NUM_DRONES = 5
 DEFAULT_PHYSICS = Physics("pyb")
 DEFAULT_GUI = True
 DEFAULT_RECORD_VISION = False
@@ -44,11 +46,14 @@ def run(
         colab=DEFAULT_COLAB
         ):
 
-    INIT_XYZS = np.array([[0, 0, 1]])
-    INIT_RPYS = np.array([[0, 0, 0]])
 
-    TARGET_POS = np.array([[0, 0, 1]])
-    TARGET_RPY = np.array([[0, 0, 0]])
+    R = 1.3
+    d = 0.5
+    INIT_XYZS = np.array([[i, 0, 0] for i in range(num_drones)]) # shape(num_drones, 3)
+    INIT_RPYS = np.array([[0, 0,  0] for i in range(num_drones)])
+
+    target_xyzs = np.array([[0, i*d, 1] for i in range(num_drones)])
+    target_rpys = np.array([[0, 0, 0] for i in range(num_drones)])
 
     env = CtrlAviary(drone_model=drone,
                         num_drones=num_drones,
@@ -63,60 +68,64 @@ def run(
                         obstacles=obstacles,
                         user_debug_gui=user_debug_gui
                         )
-    
-    #### Obtain the PyBullet Client ID from the environment ####
-    PYB_CLIENT = env.getPyBulletClient()
 
-    #### Initialize the logger ################################# TODO Make Logger update in realtime
+    PYB_CLIENT = env.getPyBulletClient()
     logger = Logger(logging_freq_hz=control_freq_hz,
                     num_drones=num_drones,
                     output_folder=output_folder,
                     colab=colab
                     )
-    
-    #### Initialize the controllers ############################
-    if drone in [DroneModel.CF2X, DroneModel.CF2P, DroneModel.RACE]:
-        ctrl = [LQRControl(drone_model=drone) for i in range(num_drones)]
 
-    
-    #### Run the simulation ####################################
+    if drone in [DroneModel.CF2X, DroneModel.CF2P]:
+        ctrl = [DSLPIDControl(drone_model=drone) for i in range(num_drones)]
+
     action = np.zeros((num_drones,4))
     START = time.time()
     for i in range(0, int(duration_sec*env.CTRL_FREQ)):
         obs, reward, terminated, truncated, info = env.step(action)
-        # TARGET_POS = TARGET_POS + 0.001
-        # TARGET_POS[0, 2] = 1
+        target_xyzs = line_formation(obs, length=4, angle=30, center_point=(2, -1, 1))
 
         for j in range(num_drones):
-            action[j,:], _, _ = ctrl[j].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
-                                                                state=obs[j],
-                                                                target_pos=TARGET_POS[j, :],
-                                                                target_rpy=TARGET_RPY[j, :],
-                                                                target_vel=np.array([np.sin(i/10), 0, 0]),
-                                                                # target_rpy_rates=obs[j][13:16],
-                                                                )
-            
-        #### Log the simulation ####################################
+            action[j, :], _, _ = ctrl[j].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
+                                                                    state=obs[j],
+                                                                    target_pos=target_xyzs[j],
+                                                                    target_rpy=target_rpys[j, :]
+                                                                    )
+
         for j in range(num_drones):
             logger.log(drone=j,
-                    timestamp=i/env.CTRL_FREQ,
-                    state=obs[j],
-                    control=np.hstack([TARGET_POS[j, :], TARGET_RPY[j, :], np.zeros(6)])
-                    )
-            
+                       timestamp=i/env.CTRL_FREQ,
+                       state=obs[j],
+                       control=np.hstack((target_xyzs[j, :], target_rpys[j, :], np.zeros(6)))
+                       )
+
         env.render()
 
         if gui:
             sync(i, START, env.CTRL_TIMESTEP)
 
     env.close()
-
     logger.save()
-    logger.save_as_csv("position_control")
-
+    logger.save_as_csv("line_formation")
     if plot:
         logger.plot()
 
+def line_formation(current_states, length=5, angle=45, center_point=np.array([0, 3, 1])):
+    center_point = np.asarray(center_point)
+
+    num_drones = current_states.shape[0]
+    angle_rad = np.radians(angle)
+
+    x_offsets = np.linspace(-length / 2, length / 2, num_drones)
+    y_offsets = x_offsets * np.tan(angle_rad)
+    
+    target_xyzs = np.zeros((num_drones, 3))
+    target_xyzs[:, 0] = center_point[0] + x_offsets  # x-coordinates
+    target_xyzs[:, 1] = center_point[1] + y_offsets  # y-coordinates
+    target_xyzs[:, 2] = center_point[2] 
+
+
+    return target_xyzs
 
 if __name__ == "__main__":
     run()

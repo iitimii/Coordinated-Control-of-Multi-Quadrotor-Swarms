@@ -1,3 +1,5 @@
+# Spell Covenant University
+
 import os
 import time
 import argparse
@@ -15,8 +17,9 @@ from controllers.pid_controller import DSLPIDControl
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
 
+
 DEFAULT_DRONES = DroneModel("cf2x")
-DEFAULT_NUM_DRONES = 4
+DEFAULT_NUM_DRONES = 5
 DEFAULT_PHYSICS = Physics("pyb")
 DEFAULT_GUI = True
 DEFAULT_RECORD_VISION = False
@@ -24,8 +27,8 @@ DEFAULT_PLOT = True
 DEFAULT_USER_DEBUG_GUI = False
 DEFAULT_OBSTACLES = False
 DEFAULT_SIMULATION_FREQ_HZ = 240
-DEFAULT_CONTROL_FREQ_HZ = 48
-DEFAULT_DURATION_SEC = 12
+DEFAULT_CONTROL_FREQ_HZ = 120
+DEFAULT_DURATION_SEC = 30
 DEFAULT_OUTPUT_FOLDER = 'results'
 DEFAULT_COLAB = False
 
@@ -48,7 +51,7 @@ def run(
 
     R = 1.3
     d = 0.5
-    INIT_XYZS = np.array([[0, i*d, 0] for i in range(num_drones)]) # shape(num_drones, 3)
+    INIT_XYZS = np.array([[i, 0, 0] for i in range(num_drones)]) # shape(num_drones, 3)
     INIT_RPYS = np.array([[0, 0,  0] for i in range(num_drones)])
 
     target_xyzs = np.array([[0, i*d, 1] for i in range(num_drones)])
@@ -78,19 +81,16 @@ def run(
     if drone in [DroneModel.CF2X, DroneModel.CF2P]:
         ctrl = [DSLPIDControl(drone_model=drone) for i in range(num_drones)]
 
-    adjacency_matrix = np.ones((num_drones, num_drones)) - np.eye(num_drones)
-
     action = np.zeros((num_drones,4))
     START = time.time()
     for i in range(0, int(duration_sec*env.CTRL_FREQ)):
         obs, reward, terminated, truncated, info = env.step(action)
-        target_xyzs = consensus(obs) 
-
+        target_xyzs = word_formation(obs, side_length=1, center_point=(0, 0, 1))
 
         for j in range(num_drones):
             action[j, :], _, _ = ctrl[j].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
                                                                     state=obs[j],
-                                                                    target_pos=target_xyzs[j, :],
+                                                                    target_pos=target_xyzs[j],
                                                                     target_rpy=target_rpys[j, :]
                                                                     )
 
@@ -108,13 +108,13 @@ def run(
 
     env.close()
     logger.save()
-    logger.save_as_csv("formation_flight")
+    logger.save_as_csv("word_formation")
     if plot:
         logger.plot()
 
-def consensus(current_states):
-    d = 2
-    target_xyzs = np.array([[2*np.sin(time.time()), i*d, 1] for i in range(DEFAULT_NUM_DRONES)])
+def word_formation(current_states, word="YES", center_point=np.array([0, 0, 1])):
+    center_point = np.asarray(center_point)
+
     return target_xyzs
 
 if __name__ == "__main__":

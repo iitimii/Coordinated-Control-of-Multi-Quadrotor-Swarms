@@ -12,7 +12,7 @@ from controllers.pid_controller import DSLPIDControl
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
 
-DEFAULT_DRONES = DroneModel("racer")
+DEFAULT_DRONES = DroneModel("cf2x")
 DEFAULT_NUM_DRONES = 1
 DEFAULT_PHYSICS = Physics("pyb")
 DEFAULT_GUI = True

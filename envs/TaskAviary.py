@@ -42,6 +42,7 @@ class TaskAviary(BaseRLAviary):
                          obs=obs,
                          act=act
                          )
+                         
         
         self.ctrl = [controller(drone_model=drone_model) for i in range(num_drones)]
         
@@ -56,7 +57,7 @@ class TaskAviary(BaseRLAviary):
         p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 1, physicsClientId=self.CLIENT)
         
     def _addObstacles(self):
-        p.loadURDF("cube_small.urdf",
+        self.cube_id = p.loadURDF("cube_small.urdf",
                        [0, 0, 0],
                        p.getQuaternionFromEuler([0, 0, 0]),
                        physicsClientId=self.CLIENT
@@ -179,6 +180,8 @@ class TaskAviary(BaseRLAviary):
         
     def _computeReward(self):
         state = self._getDroneStateVector(0)
+        cube_info = p.getBodyInfo(self.cube_id)
+        print(cube_info)
         return 0
     
     def _computeTerminated(self):
