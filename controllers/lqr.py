@@ -15,7 +15,7 @@ class LQRControl(BaseControl):
     def __init__(self, drone_model: DroneModel, g: float = 9.8):
         super().__init__(drone_model=drone_model, g=g)
         if self.DRONE_MODEL not in [DroneModel.CF2X, DroneModel.CF2P, DroneModel.RACE]:
-            print("[ERROR] DSLPIDControl requires DroneModel.CF2X or DroneModel.CF2P")
+            print("[ERROR] LQRControl requires DroneModel.CF2X or DroneModel.CF2P")
             exit()
         self.Ixx = self._getURDFParameter("ixx")
         self.Iyy = self._getURDFParameter("iyy")

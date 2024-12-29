@@ -7,7 +7,6 @@ import pybullet_data
 
 from gym_pybullet_drones.utils.enums import DroneModel, Physics
 from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
-# from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
 from controllers.pid_controller import DSLPIDControl
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
@@ -45,7 +44,7 @@ def run(
     INIT_XYZS = np.array([[0, 0, 0]])
     INIT_RPYS = np.array([[0, 0, 0]])
 
-    TARGET_POS = np.array([[1.5, 1.5, 2]])
+    TARGET_POS = np.array([[0, 0, 1]])
     TARGET_RPY = np.array([[0, 0, 0]])
 
     env = CtrlAviary(drone_model=drone,
@@ -88,7 +87,7 @@ def run(
         for j in range(num_drones):
             action[j,:], _, _ = ctrl[j].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
                                                                 state=obs[j],
-                                                                target_pos=TARGET_POS[j, :],
+                                                                target_pos=TARGET_POS[j, :]+np.sin(i/100),
                                                                 target_rpy=TARGET_RPY[j, :])
             
         #### Log the simulation ####################################

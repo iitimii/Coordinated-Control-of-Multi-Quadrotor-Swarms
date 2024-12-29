@@ -16,7 +16,7 @@ from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
 
 from formation_flight.collision_avoidance import collision_avoidance
-from utils import initialize_drones
+from utils.utils import initialize_drones
 
 DEFAULT_DRONES = DroneModel("cf2x")
 DEFAULT_NUM_DRONES = 10

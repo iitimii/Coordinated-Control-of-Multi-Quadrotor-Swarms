@@ -9,377 +9,160 @@ from gym_pybullet_drones.utils.enums import DroneModel
 import control as ct
 
 
-# class LQRControl(BaseControl):
-#     """LQR class for Crazyflies"""
-
-#     def __init__(self, drone_model: DroneModel, g: float = 9.8):
-#         super().__init__(drone_model=drone_model, g=g)
-#         if self.DRONE_MODEL != DroneModel.CF2X and self.DRONE_MODEL != DroneModel.CF2P:
-#             print("[ERROR] in DSLPIDControl.__init__(), DSLPIDControl requires DroneModel.CF2X or DroneModel.CF2P")
-#             exit()
-
-#         self.J = np.diag([1.4e-5, 1.4e-5, 2.17e-5]) # for cf2x.urdf
-#         self.mass = 0.027
-#         self.l = 0.0397
-#         self.g = g
-
-#         self.K_att, self.K_pos = self._compute_lqr_gains()
-
-#         self.PWM2RPM_SCALE = 0.2685
-#         self.PWM2RPM_CONST = 4070.3
-#         self.MIN_PWM = 20000
-#         self.MAX_PWM = 65535
-#         self.MIXER_MATRIX = np.array([ 
-#                                     [-.5, -.5, -1],
-#                                     [-.5,  .5,  1],
-#                                     [.5, .5, -1],
-#                                     [.5, -.5,  1]
-#                                     ])
-
-#         self.reset()
-
-#     def _compute_lqr_gains(self):
-#         # Attitude subsystem matrices
-#         A_att = np.block([
-#             [np.zeros((3, 3)), np.eye(3)],
-#             [np.zeros((3, 3)), np.zeros((3, 3))]
-#         ])
-
-#         B_att = np.block([
-#             [np.zeros((3, 3))],
-#             [np.eye(3)]
-#         ])
-        
-#         # Position subsystem matrices
-#         A_pos = np.block([
-#             [np.zeros((3, 3)), np.eye(3)],
-#             [np.zeros((3, 3)), np.zeros((3, 3))]
-#         ])
-
-#         B_pos = np.block([
-#             [np.zeros((3, 3))],
-#             [np.eye(3)]
-#         ])
-        
-#         # Cost matrices for LQR
-#         Q_att = np.eye(6)  # State cost matrix
-#         R_att = np.eye(3)  # Control input cost matrix
-#         Q_pos = np.eye(6)
-#         R_pos = np.eye(3)
-
-#         K_att, _, _ = ct.lqr(A_att, B_att, Q_att, R_att)
-#         K_pos, _, _ = ct.lqr(A_pos, B_pos, Q_pos, R_pos)
-
-#         return K_att, K_pos
-        
-#     def reset(self):
-#         return super().reset()
-    
-#     def computeControlFromState(self,
-#                                 control_timestep,
-#                                 state,
-#                                 target_pos,
-#                                 target_yaw=np.zeros(1),
-#                                 target_vel=np.zeros(3),
-#                                 target_yaw_rate=np.zeros(1)
-#                                 ):
-#         """Interface method using `computeControl`."""
-#         return self.computeControl(control_timestep=control_timestep,
-#                                    cur_pos=state[0:3],
-#                                    cur_quat=state[3:7],
-#                                    cur_vel=state[10:13],
-#                                    cur_ang_vel=state[13:16],
-#                                    target_pos=target_pos,
-#                                    target_yaw=target_yaw,
-#                                    target_vel=target_vel,
-#                                    target_yaw_rate=target_yaw_rate
-#                                    )
-    
-#     def computeControl(self,
-#                        control_timestep,
-#                        cur_pos,
-#                        cur_quat,
-#                        cur_vel,
-#                        cur_ang_vel,
-#                        target_pos,
-#                        target_yaw=np.zeros(0),
-#                        target_vel=np.zeros(3),
-#                        target_yaw_rate=np.zeros(0)
-#                        ):
-        
-#         self.control_counter += 1
-
-#         # Position control to determine thrust and target attitude
-#         total_thrust, target_quat = self._position_control(
-#             control_timestep, cur_pos, cur_quat, cur_vel, 
-#             cur_ang_vel, target_pos, target_yaw, 
-#             target_vel, target_yaw_rate
-#         )
-
-#         # Attitude control to determine torques
-#         target_torques = self._attitude_control(
-#             control_timestep, cur_quat, cur_ang_vel, 
-#             target_quat, np.zeros(3)  # Assuming zero target angular velocity
-#         )
-
-#         # Combine thrust and torques into motor commands
-#         pwm = total_thrust + np.dot(self.MIXER_MATRIX, target_torques)
-#         pwm = np.clip(pwm, self.MIN_PWM, self.MAX_PWM)
-#         rpm =  self.PWM2RPM_SCALE * pwm + self.PWM2RPM_CONST
-
-#         return rpm
-    
-#     def _position_control(self,
-#                           control_timestep,
-#                           cur_pos,
-#                           cur_quat,
-#                           cur_vel,
-#                           cur_ang_vel,
-#                           target_pos,
-#                           target_yaw,
-#                           target_vel,
-#                           target_yaw_rate
-#                           ):
-        
-#         # Create state vector for position subsystem
-#         x_pos = np.concatenate([cur_pos, cur_vel])
-#         x_pos_des = np.concatenate([target_pos, target_vel])
-
-#         # Compute control input using LQR gain
-#         u_pos = -self.K_pos @ (x_pos - x_pos_des)
-
-#         # Total thrust computation (based on paper's equation)
-#         total_thrust = self.mass * (np.linalg.norm(u_pos) + self.g)
-
-#         # Compute target quaternion 
-#         # Follows the paper's approach of creating a rotation that aligns thrust with desired direction
-#         b = np.array([0, 0, 1])  # Body-fixed z-axis 
-#         u_thrust = u_pos / np.linalg.norm(u_pos)
-        
-#         # Compute rotation between current z-axis and desired thrust direction
-#         v = np.cross(b, u_thrust)
-#         s = np.linalg.norm(v)
-#         c = np.dot(b, u_thrust)
-        
-#         # Quaternion from axis-angle representation
-#         target_quat = np.array([
-#             1 + c,  # Scalar part
-#             v[0],   # Vector part x
-#             v[1],   # Vector part y
-#             v[2]    # Vector part z
-#         ])
-        
-#         # Normalize the quaternion
-#         target_quat /= np.linalg.norm(target_quat)
-        
-#         return total_thrust, target_quat
-    
-#     def _attitude_control(self,
-#                           control_timestep,
-#                           cur_quat,
-#                           cur_ang_vel,
-#                           target_quat,
-#                           target_ang_vel):
-        
-#         # Compute quaternion error
-#         q_error = self._quaternion_error(cur_quat, target_quat)
-
-#         # Compute attitude control input
-#         # Similar to the attitude control law in the paper
-#         x_att = np.concatenate([q_error, cur_ang_vel])
-#         x_att_des = np.zeros_like(x_att)  # x_att_des = np.concatenate([np.zeros(3), target_yaw_rate])
-        
-#         target_torques = -self.K_att @ (x_att - x_att_des)
-        
-#         return target_torques
-    
-#     def _quaternion_error(self, q1, q2):
-#         """
-#         Compute quaternion error as in the paper
-        
-#         Args:
-#             q1 (np.ndarray): First quaternion
-#             q2 (np.ndarray): Second quaternion
-        
-#         Returns:
-#             np.ndarray: Quaternion error
-#         """
-#         # Quaternion error as defined in the paper
-#         return np.array([q1[0]*q2[0] + np.dot(q1[1:], q2[1:]),
-#                          q1[0]*q2[1:] - q2[0]*q1[1:] + np.cross(q1[1:], q2[1:])])
-    
-
-    
-
-    
-
-# GPT 40
 class LQRControl(BaseControl):
     """LQR Controller class for Crazyflies."""
 
     def __init__(self, drone_model: DroneModel, g: float = 9.8):
         super().__init__(drone_model=drone_model, g=g)
-        if self.DRONE_MODEL not in [DroneModel.CF2X, DroneModel.CF2P]:
-            print("[ERROR] DSLPIDControl requires DroneModel.CF2X or DroneModel.CF2P")
+        if self.DRONE_MODEL not in [DroneModel.CF2X, DroneModel.CF2P, DroneModel.RACE]:
+            print("[ERROR] LQRControl requires DroneModel.CF2X or DroneModel.CF2P or DroneModel.RACE")
             exit()
-
-        self.J = np.diag([1.4e-5, 1.4e-5, 2.17e-5])  # Inertia matrix for CF2X
-        self.mass = 0.027
-        self.l = 0.0397
+        self.Ixx = self._getURDFParameter("ixx")
+        self.Iyy = self._getURDFParameter("iyy")
+        self.Izz = self._getURDFParameter("izz")
+        self.J = np.diag([self.Ixx, self.Iyy, self.Izz])
+        self.mass = self._getURDFParameter("m")
+        self.l = self._getURDFParameter("arm")
         self.g = g
-
         self.PWM2RPM_SCALE = 0.2685
         self.PWM2RPM_CONST = 4070.3
         self.MIN_PWM = 20000
         self.MAX_PWM = 65535
-        self.MIXER_MATRIX = np.array([ 
+
+        if self.DRONE_MODEL == DroneModel.CF2X or self.DRONE_MODEL == DroneModel.RACE:
+            self.MIXER_MATRIX = np.array([ 
                                     [-.5, -.5, -1],
                                     [-.5,  .5,  1],
                                     [.5, .5, -1],
                                     [.5, -.5,  1]
                                     ])
+        elif self.DRONE_MODEL == DroneModel.CF2P:
+            self.MIXER_MATRIX = np.array([
+                                    [0, -1,  -1],
+                                    [+1, 0, 1],
+                                    [0,  1,  -1],
+                                    [-1, 0, 1]
+                                    ])
 
-        self.K_att, self.K_pos = self._compute_lqr_gains()
-
+        self.K_x, self.K_y, self.K_z, self.K_psi = self._compute_K()
+        self.x_error_integral=self.y_error_integral=self.z_error_integral=0.0
+        self.phi_error_integral=self.theta_error_integral=self.psi_error_integral=0.0
         self.reset()
 
-    def _compute_lqr_gains(self):
-        # Attitude control system matrices
-        A_att = np.block([
-            [np.zeros((3, 3)), np.eye(3)],
-            [np.zeros((3, 3)), np.zeros((3, 3))]
-        ])
-        B_att = np.block([
-            [np.zeros((3, 3))],
-            [np.eye(3)]
-        ])
+    def _compute_K(self):
+        # x and theta dynamics
+        Ax = np.array([[0.0, 1.0, 0.0, 0.0],
+                        [0.0, 0.0, self.g, 0.0],
+                        [0.0, 0.0, 0.0, 1.0],
+                        [0.0, 0.0, 0.0, 0.0]])
+        Bx = np.array(
+            [[0.0],
+            [0.0],
+            [0.0],
+            [1 / self.Ixx]])
+        # C_x = np.array([1, 0])
+        # A_x_aug = np.block([[A_x, np.zeros((2, 1))], [-C_x, np.zeros((1, 1))]])
+        # B_x_aug = np.vstack([B_x, [[0]]])
+        Q_x = np.diag([10000, 100, 10, 1])
+        R_x = 10
+        K_x, _, _ = ct.lqr(Ax, Bx, Q_x, R_x)
 
-        # Position control system matrices
-        A_pos = np.block([
-            [np.zeros((3, 3)), np.eye(3)],
-            [np.zeros((3, 3)), np.zeros((3, 3))]
-        ])
-        B_pos = np.block([
-            [np.zeros((3, 3))],
-            [np.eye(3)]
-        ])
+        # y and phi dynamics
+        Ay = np.array(
+            [[0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, -self.g, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0]])
+        By = np.array(
+            [[0.0],
+            [0.0],
+            [0.0],
+            [1 / self.Iyy]])
+        # C_y = np.array([1, 0])
+        # A_y_aug = np.block([[A_y, np.zeros((2, 1))], [-C_y, np.zeros((1, 1))]])
+        # B_y_aug = np.vstack([B_y, [[0]]])
+        Q_y = np.diag([10, 10, 10, 1])
+        R_y = 0.11
+        K_y, _, _ = ct.lqr(Ay, By, Q_y, R_y)
 
-        # Cost matrices
-        Q_att = np.eye(6) * 1.0  # Adjust weights for attitude stabilization
-        R_att = np.eye(3) * 0.1
-        Q_pos = np.eye(6) * 1.0  # Adjust weights for position stabilization
-        R_pos = np.eye(3) * 0.1
+        # z dynamics
+        A_z = np.array([[0, 1], [0, 0],])
+        B_z = np.array([[0], [1/self.mass]])
+        # C_z = np.array([1, 0])
+        # A_z_aug = np.block([[A_z, np.zeros((2, 1))], [-C_z, np.zeros((1, 1))]])
+        # B_z_aug = np.vstack([B_z, [[0]]])
+        Q_z = np.diag([1000, 100])
+        R_z = 0.11
+        K_z, _, _ = ct.lqr(A_z, B_z, Q_z, R_z)
 
-        # Calculate LQR gains
-        K_att, _, _ = ct.lqr(A_att, B_att, Q_att, R_att)
-        K_pos, _, _ = ct.lqr(A_pos, B_pos, Q_pos, R_pos)
+        # psi dynamics
+        A_psi = np.array([[0, 1], [0, 0],])
+        B_psi = np.array([[0], [1/self.Izz]])
+        # C_psi = np.array([1, 0])
+        # A_psi_aug = np.block([[A_psi, np.zeros((2, 1))], [-C_psi, np.zeros((1, 1))]])
+        # B_psi_aug = np.vstack([B_psi, [[0]]])
+        Q_psi = np.diag([10, 1])
+        R_psi = 0.11
+        K_psi, _, _ = ct.lqr(A_psi, B_psi, Q_psi, R_psi)
 
-        return K_att, K_pos
+        return K_x, K_y, K_z, K_psi
 
     def reset(self):
-        self.control_counter = 0
+        super().reset()
+        self.phi_error_integral=self.theta_error_integral=self.psi_error_integral=0.0
 
-    def computeControl(self, control_timestep, cur_pos, cur_quat, cur_vel, cur_ang_vel, target_pos, target_yaw, target_vel, target_yaw_rate):
-        """Compute control outputs."""
-        thrust, target_quat = self._position_control(control_timestep, cur_pos, cur_quat, cur_vel, cur_ang_vel, target_pos, target_yaw, target_vel, target_yaw_rate)
-        torques = self._attitude_control(control_timestep, cur_quat, cur_ang_vel, target_quat)
 
-        pwm = thrust + np.dot(self.MIXER_MATRIX, torques)
-        pwm = np.clip(pwm, self.MIN_PWM, self.MAX_PWM)
-        rpm =  self.PWM2RPM_SCALE * pwm + self.PWM2RPM_CONST
-
-        return rpm
-    
-    def computeControlFromState(self,
-                                control_timestep,
-                                state,
-                                target_pos,
-                                target_yaw=np.zeros(1),
-                                target_vel=np.zeros(3),
-                                target_yaw_rate=np.zeros(1)
-                                ):
+    def computeControl(self,
+                       control_timestep,
+                       cur_pos,
+                       cur_quat,
+                       cur_vel,
+                       cur_ang_vel,
+                       target_pos,
+                       target_rpy=np.zeros(3),
+                       target_vel=np.zeros(3),
+                       target_rpy_rates=np.zeros(3)):
         
-        return self.computeControl(control_timestep=control_timestep,
-                                   cur_pos=state[0:3],
-                                   cur_quat=state[3:7],
-                                   cur_vel=state[10:13],
-                                   cur_ang_vel=state[13:16],
-                                   target_pos=target_pos,
-                                   target_yaw=target_yaw,
-                                   target_vel=target_vel,
-                                   target_yaw_rate=target_yaw_rate
-                                   )
+        self.control_counter += 1
 
-    def _position_control(self, control_timestep, cur_pos, cur_quat, cur_vel, cur_ang_vel, target_pos, target_yaw, target_vel, target_yaw_rate=0):
-        x_pos = np.concatenate([cur_pos, cur_vel])
-        x_pos_des = np.concatenate([target_pos, target_vel])
-        u_pos = -self.K_pos @ (x_pos - x_pos_des)
+        cur_rpy = np.array(p.getEulerFromQuaternion(cur_quat))
+        cur_vel = Rotation.from_euler('XYZ', cur_rpy).inv().apply(cur_vel) # Convert velocity to body frame
+        target_vel = Rotation.from_euler('XYZ', target_rpy).inv().apply(target_vel) # Convert velocity to body frame
+        cur_ang_vel = Rotation.from_euler('XYZ', cur_rpy).inv().apply(cur_ang_vel) # Convert angular velocity to body frame
 
-        target_quat = p.getQuaternionFromEuler((u_pos[1], u_pos[2], target_yaw))
+        x = np.array([cur_pos[0], cur_vel[0], cur_rpy[1], cur_ang_vel[1]])
+        r = np.array([target_pos[0], target_vel[0], target_rpy[1], target_rpy_rates[1]])
+        x_error = x - r
+        target_My = -np.dot(self.K_x, x_error)
+        # target_theta = np.clip(target_theta, -0.5, 0.5)
 
-        return u_pos[0], target_quat
+        x = np.array([cur_pos[1], cur_vel[1], cur_rpy[0], cur_ang_vel[0]])
+        r = np.array([target_pos[1], target_vel[1], target_rpy[0], target_rpy_rates[0]])
+        y_error = x - r
+        target_Mx = -np.dot(self.K_y, y_error)
 
-    def _attitude_control(self, control_timestep, cur_quat, cur_ang_vel, target_quat, target_ang_vel=0):
-        cur_theta = self._quaternion_ln(cur_quat)
-        target_theta = self._quaternion_ln(target_quat)
+        x = np.array([cur_pos[2], cur_vel[2]])
+        r = np.array([target_pos[2], target_vel[2]])
+        z_error = x - r
+        target_thrust = -np.dot(self.K_z, z_error)
 
-        x_att = np.concatenate([cur_theta, cur_ang_vel])
-        x_att_des = np.concatenate([target_theta, cur_ang_vel])
-        u_att = -self.K_att @ (x_att - x_att_des)
-        return u_att
 
-    def _quaternion_product(q1, q2):
-        q1 = np.asarray(q1)
-        q2 = np.asarray(q2)
-        q1 = q1.reshape(4)
-        q2 = q2.reshape(4)
+        x = np.array([cur_rpy[2], cur_ang_vel[2]])
+        r = np.array([target_rpy[2], target_rpy_rates[2]])
+        psi_error = x - r
+        target_Mz = -np.dot(self.K_psi, psi_error)
 
-        p = q1
-        q = q2
 
-        return np.array([p[0]*q[0] - p[1]*q[1]- p[2]*q[2]- p[3]*q[3],
-                         p[0]*q[1] + p[1]*q[0]+ p[2]*q[3]- p[3]*q[2],
-                         p[0]*q[2] - p[1]*q[3]+ p[2]*q[0]+ p[3]*q[1],
-                         p[0]*q[3] + p[1]*q[2]- p[2]*q[1]+ p[3]*q[0]], dtype=np.float64).reshape(4)
-    
-    def _quaternion_conjugate(self, q):
-        q = np.asarray(q)
-        q = q.reshape(4)
-        return np.array([q[0], -q[1], -q[2], -q[3]]).reshape(4)
-    
-    def _quaternion_ln(self, q):
-        q = np.asarray(q)
-        q = q.reshape(4)
+        target_torques = np.hstack((target_Mx, target_My, target_Mz))
+        target_thrust = np.maximum(0, target_thrust)
 
-        q_norm = np.linalg.norm(q)
-        q_complex_norm = np.linalg.norm(q[1:])
+        thrust = (math.sqrt(target_thrust / (4*self.KF)) - self.PWM2RPM_CONST) / self.PWM2RPM_SCALE
+        target_torques = np.clip(target_torques, -3200, 3200)
+        pwm = thrust + np.dot(self.MIXER_MATRIX, target_torques)
+        pwm = np.clip(pwm, self.MIN_PWM, self.MAX_PWM)
+        rpm = self.PWM2RPM_SCALE * pwm + self.PWM2RPM_CONST
 
-        if q_complex_norm < 1e-8:
-            return np.log(q_norm)
+        pos_e = target_pos - cur_pos
+        rpy_e = target_rpy - cur_rpy
 
-        theta = np.arccos(np.clip(q[0] / q_norm, -1.0, 1.0))
-
-        ln_q = np.log(q_norm) + (q[1:] / q_complex_norm) * theta
-
-        return ln_q
-    
-    def quaternion_rotate_vector(self, q, v):
-        q = np.asarray(q)
-        v = np.asarray(v)
-        q = q.reshape(4)
-        v = v.reshape(3)
-        q = q / np.linalg.norm(q)
-
-        v_q = np.concatenate([[0], v])
-
-        # Compute q* ⊗ v ⊗ q
-        q_conj = self._quaternion_conjugate(q)
-        temp = self._quaternion_product(q_conj, v_q)
-        v_rotated_q = self._quaternion_product(temp, q)
-
-        v_rotated = v_rotated_q[1:]
-        return v_rotated
-    
-    def _get_target_quat(self, desired_direction, target_yaw):
-        pass
-
+        return rpm, pos_e, rpy_e
