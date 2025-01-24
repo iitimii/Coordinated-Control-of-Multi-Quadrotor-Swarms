@@ -100,8 +100,8 @@ class MRAC(BaseControl):
         self.Bm = np.copy(B)
         self.P = solve_lyapunov(self.Am.T, -Q)
 
-        self.Gamma_x = np.eye(12) * 5e-4
-        self.Gamma_r = np.eye(4) * 5e-4
+        self.Gamma_x = np.eye(12) * 5e-3
+        self.Gamma_r = np.eye(4) * 5e-3
 
         Kx = -K.T
         Kr = np.eye(4) 
@@ -136,12 +136,10 @@ class MRAC(BaseControl):
         rt = -self.Kr_ref_gain @ r
 
         X_actual = np.hstack((cur_pos, cur_rpy, cur_vel, cur_ang_vel)).reshape(12, 1)
-        Xm = np.copy(self.Xm)
 
         u = self.Kx.T @ X_actual + self.Kr.T @ rt
 
-        e = X_actual - self.Xm
-        # e = X_actual - r # bypassing the model
+        e = X_actual - self.Xm # TODO plot X_actual and Xm
         Kx_dot = -self.Gamma_x @ X_actual @ e.T @ self.P @ self.Bm
         Kr_dot = -self.Gamma_r @ rt @ e.T @ self.P @ self.Bm
 
@@ -157,13 +155,11 @@ class MRAC(BaseControl):
         pwm = thrust + np.dot(self.MIXER_MATRIX, target_torques)
         pwm = np.clip(pwm, self.MIN_PWM, self.MAX_PWM)
         rpm = self.PWM2RPM_SCALE * pwm + self.PWM2RPM_CONST
+        
+        pos_e = target_pos - cur_pos
+        rpy_e = target_rpy - cur_rpy
 
         Xm_dot = self.Am @ self.Xm + self.Bm @ rt
         self.Xm += Xm_dot*control_timestep
 
-        return rpm, X_actual, Xm, e
-
-
-
-
-# TODO Add constraints to limit states like phi and theta angles
+        return rpm, pos_e, rpy_e

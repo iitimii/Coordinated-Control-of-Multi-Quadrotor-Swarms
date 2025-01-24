@@ -1,14 +1,7 @@
 import os
 from envs.TaskAviary import TaskAviary
-from gym_pybullet_drones.envs.HoverAviary import HoverAviary
 import numpy as np
-from gym_pybullet_drones.utils.enums import (
-    DroneModel,
-    Physics,
-    ActionType,
-    ObservationType,
-    ImageType,
-)
+from gym_pybullet_drones.utils.enums import DroneModel, Physics, ActionType, ObservationType, ImageType
 from controllers.pid_controller import DSLPIDControl
 from PIL import Image
 from datetime import datetime
@@ -16,10 +9,7 @@ from datetime import datetime
 import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.callbacks import (
-    EvalCallback,
-    StopTrainingOnRewardThreshold,
-)
+from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnRewardThreshold
 from stable_baselines3.common.evaluation import evaluate_policy
 
 
@@ -82,6 +72,12 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER):
         debug_image=False,
     )
 
+    model = PPO('MultiInputPolicy', train_env,
+                # tensorboard_log=filename+'/tb/',
+                verbose=1)
+    
+    model.learn(10)
+
     test_env = TaskAviary(
         drone_model=DRONE_MODEL,
         controller=DSLPIDControl,
@@ -98,11 +94,6 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER):
         debug_image=False,
     )
 
-    model = PPO('MultiInputPolicy', train_env,
-                # tensorboard_log=filename+'/tb/',
-                verbose=1)
-    
-    model.learn(10)
 
     test_env.reset()
     action = np.array([[0, 0, 0.1, 0]])  # shape (1,4) x,y,z,yaw

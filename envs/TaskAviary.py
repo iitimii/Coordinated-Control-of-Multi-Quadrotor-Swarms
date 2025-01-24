@@ -181,7 +181,7 @@ class TaskAviary(BaseRLAviary):
     def _computeReward(self):
         state = self._getDroneStateVector(0)
         cube_info = p.getBodyInfo(self.cube_id)
-        print(cube_info)
+        # print(cube_info)
         return 0
     
     def _computeTerminated(self):
@@ -201,4 +201,4 @@ class TaskAviary(BaseRLAviary):
             return False
 
     def _computeInfo(self):
-        return {"answer": 42} # Calculated by the Deep Thought supercomputer in 7.5M years, very funny
+        return {"answer": 42} # Calculated by the Deep Thought supercomputer in 7.5M years, very funny :)
