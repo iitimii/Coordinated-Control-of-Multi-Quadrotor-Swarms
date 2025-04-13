@@ -87,21 +87,22 @@ class MRAC(BaseControl):
         
         B = np.vstack((np.zeros((8, 4)), b_sub))
 
-        Q = np.eye(12)*600
+        self.Gamma_x = np.eye(12) * 5e-3
+        self.Gamma_r = np.eye(4) * 5e-3
+
         # Q = np.diag((700, 700, 700, 500, 500, 500, 500, 500, 500, 500, 500, 500))
-        # R = np.eye(4)*10
+        # R = np.eye(4)*100
         # K, self.P, _ = ct.lqr(A, B, Q, R)
 
+        Q = np.eye(12)*600
         desired_poles = -np.linspace(1, 12, 12)
         K = ct.place(A, B, desired_poles)
-        self.Kr_ref_gain = np.linalg.pinv(B) @ (A - B @ K)
 
+        self.Kr_ref_gain = np.linalg.pinv(B) @ (A - B @ K)
         self.Am = A - B@K
         self.Bm = np.copy(B)
-        self.P = solve_lyapunov(self.Am.T, -Q)
 
-        self.Gamma_x = np.eye(12) * 5e-4
-        self.Gamma_r = np.eye(4) * 5e-4
+        self.P = solve_lyapunov(self.Am.T, -Q)
 
         Kx = -K.T
         Kr = np.eye(4) 
@@ -167,3 +168,8 @@ class MRAC(BaseControl):
 
 
 # TODO Add constraints to limit states like phi and theta angles
+# TODO vary mass
+# Change m and l to what degree
+
+# Implement the non linear controller
+# Feedback linearization

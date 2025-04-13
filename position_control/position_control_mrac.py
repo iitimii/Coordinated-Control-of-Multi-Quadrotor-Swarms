@@ -8,6 +8,7 @@ import pybullet_data
 from gym_pybullet_drones.utils.enums import DroneModel, Physics
 from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
 from controllers.mrac import MRAC
+from controllers.nonlinear_mrac import NonlinearMRAC
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
 
@@ -41,10 +42,10 @@ def run(
         colab=DEFAULT_COLAB
         ):
 
-    INIT_XYZS = np.array([[0, 0, 0.1]])
+    INIT_XYZS = np.array([[0, 0, 0]])
     INIT_RPYS = np.array([[0, 0, 0]])
 
-    TARGET_POS = np.array([[1, 0, 1]])
+    TARGET_POS = np.array([[0, 0, 1]])
     TARGET_RPY = np.array([[0, 0, 0]])
 
     env = CtrlAviary(drone_model=drone,
@@ -120,10 +121,13 @@ def run(
         Xm_list = np.array(Xm_list)
         error_list = np.array(error_list)
         target_list = np.array(target_list)
-        states = ["x", "y", "z", "phi", "theta", "psi", "x_dot", "y_dot", "z_dot", "p", "q", "r"]
+        states = ["x", "y", "z", "phi", "theta", "psi", "x_dot", "y_dot", "z_dot", "p", "q", "r"] if X_actual_list.shape[1] == 12 else ["x", "y", "z", "x_dot", "y_dot", "z_dot"]
 
         for i, state in enumerate(states):
-            plt.subplot(3, 4, i+1)
+            if len(states) == 6:
+                plt.subplot(2, 3, i+1)
+            else:
+                plt.subplot(3, 4, i+1)
             plt.tight_layout()
             plt.plot(X_actual_list[:, i], label='actual')
             plt.plot(Xm_list[:, i], label='model')
@@ -131,7 +135,7 @@ def run(
             plt.xlabel('time')
             plt.ylabel(state)
         
-        plt.figlegend(['actual', 'model', 'target'], loc='upper right', ncol=3, labelspacing=0.)
+        plt.figlegend(['actual plant', 'reference model', 'target'], loc='upper right', ncol=3, labelspacing=0.)
 
         plt.show()
 

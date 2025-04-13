@@ -24,7 +24,7 @@ DEFAULT_USER_DEBUG_GUI = False
 DEFAULT_OBSTACLES = False
 DEFAULT_SIMULATION_FREQ_HZ = 240
 DEFAULT_CONTROL_FREQ_HZ = 120
-DEFAULT_DURATION_SEC = 20
+DEFAULT_DURATION_SEC = 60
 DEFAULT_OUTPUT_FOLDER = 'results'
 DEFAULT_COLAB = False
 
@@ -47,11 +47,13 @@ def run(
     INIT_XYZS = np.array([[0, 0, 0]])
     INIT_RPYS = np.array([[0, 0, 0]])
 
-    TARGET_WAYPOINTS = np.array([[0,0,0], [1.8, 1.2, 0.9], [1.5, -1.7, 0.5], [0.3, 1.9, 1.2], [-2, 0.8, 1.7], [1.8, 1.2, 0.9]])
-    # TARGET_WAYPOINTS = np.array([[0,0,0],
-    #                             [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1],
-    #                             [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1], 
-    #                             [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1]])
+    TARGET_WAYPOINTS = np.array([[0,0,0], [1.8, 1.2, 0.9], [1.5, -1.7, 0.5], [0.3, 1.9, 1.2], [-2, 0.8, 1.7], [1.8, 1.2, 0.9],
+                                 [-1.3, -1.5, 0.8],[2.1, -0.9, 1.3], [0.5, 2.4, 1.0],  [-1.8, 0.5, 1.5], [1.2, -2.2, 0.7]])
+    
+    TARGET_WAYPOINTS = np.array([[0,0,0],
+                                [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1],
+                                [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1], 
+                                [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1]])
     TARGET_RPY = np.array([[0, 0, 0]])
 
     coeff_x, coeff_y, coeff_z = get_MST_coefficients(TARGET_WAYPOINTS)
