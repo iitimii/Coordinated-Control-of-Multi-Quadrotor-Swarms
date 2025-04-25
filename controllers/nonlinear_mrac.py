@@ -11,7 +11,8 @@ import control as ct
 
 
 class NonlinearMRAC(BaseControl):
-    """Nonlinear Model Reference Adaptive Controller class for Crazyflies."""
+    """Nonlinear Model Reference Adaptive Controller class for Crazyflies.
+        Original Implementation at: https://github.com/caoty777/Quadcoptor-Adaptive-Flight-Control"""
 
     def __init__(self, drone_model: DroneModel, g: float = 9.8):
         super().__init__(drone_model=drone_model, g=g)
@@ -226,4 +227,4 @@ class NonlinearMRAC(BaseControl):
         pwm = np.clip(pwm, self.MIN_PWM, self.MAX_PWM)
         rpm = self.PWM2RPM_SCALE * pwm + self.PWM2RPM_CONST
 
-        return rpm, X_prime, Xm, e_prime
+        return rpm, X_prime, Xm
