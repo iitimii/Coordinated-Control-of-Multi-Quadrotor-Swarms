@@ -87,8 +87,8 @@ class MRAC(BaseControl):
         
         B = np.vstack((np.zeros((8, 4)), b_sub))
 
-        self.Gamma_x = np.eye(12) * 5e-3
-        self.Gamma_r = np.eye(4) * 5e-3
+        self.Gamma_x = np.eye(12) * 5e-4
+        self.Gamma_r = np.eye(4) * 5e-4
 
         # Q = np.diag((700, 700, 700, 500, 500, 500, 500, 500, 500, 500, 500, 500))
         # R = np.eye(4)*100
@@ -126,7 +126,7 @@ class MRAC(BaseControl):
                        target_rpy_rates=np.zeros(3)):
         
         cur_rpy = np.array(p.getEulerFromQuaternion(cur_quat))
-        cur_ang_vel = Rotation.from_euler('XYZ', cur_rpy).inv().apply(cur_ang_vel) # Convert angular velocity to body frame
+        cur_ang_vel = Rotation.from_quat(cur_quat).inv().apply(cur_ang_vel) # Convert angular velocity to body frame
         
         if self.control_counter == 0:
             self.Xm = np.hstack((cur_pos, cur_rpy, cur_vel, cur_ang_vel)).reshape(12, 1)
@@ -162,7 +162,7 @@ class MRAC(BaseControl):
         Xm_dot = self.Am @ self.Xm + self.Bm @ rt
         self.Xm += Xm_dot*control_timestep
 
-        return rpm, X_actual, Xm, e
+        return rpm, X_actual, Xm
 
 
 

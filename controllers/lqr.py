@@ -2,101 +2,94 @@ import math
 import numpy as np
 import pybullet as p
 from scipy.spatial.transform import Rotation
+import control as ct
 
 from gym_pybullet_drones.control.BaseControl import BaseControl
 from gym_pybullet_drones.utils.enums import DroneModel
 
-import control as ct
-
-
 class LQRControl(BaseControl):
-    """LQR Controller class for Crazyflies."""
+    """LQR Controller class for Crazyflies using quaternion error for attitude control."""
 
     def __init__(self, drone_model: DroneModel, g: float = 9.8):
         super().__init__(drone_model=drone_model, g=g)
         if self.DRONE_MODEL not in [DroneModel.CF2X, DroneModel.CF2P, DroneModel.RACE]:
-            print("[ERROR] LQRControl requires DroneModel.CF2X or DroneModel.CF2P")
+            print("[ERROR] LQRControl requires DroneModel.CF2X, CF2P, or RACE")
             exit()
+
+        # Get UAV properties from URDF
         self.Ixx = self._getURDFParameter("ixx")
         self.Iyy = self._getURDFParameter("iyy")
         self.Izz = self._getURDFParameter("izz")
-        self.J = np.diag([self.Ixx, self.Iyy, self.Izz])
         self.mass = self._getURDFParameter("m")
         self.l = self._getURDFParameter("arm")
         self.g = g
+
+        self.J = np.diag([self.Ixx, self.Iyy, self.Izz])
+
         self.PWM2RPM_SCALE = 0.2685
         self.PWM2RPM_CONST = 4070.3
         self.MIN_PWM = 20000
         self.MAX_PWM = 65535
 
-        if self.DRONE_MODEL == DroneModel.CF2X or self.DRONE_MODEL == DroneModel.RACE:
+        if self.DRONE_MODEL in [DroneModel.CF2X, DroneModel.RACE]:
             self.MIXER_MATRIX = np.array([ 
-                                    [-.5, -.5, -1],
-                                    [-.5,  .5,  1],
-                                    [.5, .5, -1],
-                                    [.5, -.5,  1]
-                                    ])
+                [-0.5, -0.5, -1],
+                [-0.5,  0.5,  1],
+                [ 0.5,  0.5, -1],
+                [ 0.5, -0.5,  1]
+            ])
         elif self.DRONE_MODEL == DroneModel.CF2P:
             self.MIXER_MATRIX = np.array([
-                                    [0, -1,  -1],
-                                    [+1, 0, 1],
-                                    [0,  1,  -1],
-                                    [-1, 0, 1]
-                                    ])
+                [0, -1,  -1],
+                [+1, 0,   1],
+                [0,  1,  -1],
+                [-1, 0,   1]
+            ])
 
-        self.K = self._compute_K()
+        # For the new state definition (pos, vel, att, ang_vel):
+        #  state indices: 0-2: pos, 3-5: vel, 6-8: attitude error, 9-11: angular velocity error
+        self.K = self._compute_K()  # LQR gain (computed once for hover)
         self.reset()
 
-    def _compute_K(self, phi=0,
-                        theta=0,
-                        psi=0,
-                        u=0,
-                        v=0,
-                        w=0,
-                        p=0,
-                        q=0,
-                        r=0):
-        
+    def _compute_K(self):
+        # Linear model about hover with 12 states and 4 inputs.
+        # State vector:
+        #   x = [ pos (3), vel (3), att_error (3), ang_vel (3) ]
+        # Dynamics:
+        #   pos_dot = vel
+        #   vel_dot = [ g * (θ_error), -g * (φ_error), 1/mass * delta_thrust ]
+        #   att_dot = angular velocity (small-angle approximation)
+        #   ang_vel_dot = I^-1 * delta_torques
+        # The A and B matrices are built accordingly.
+        A = np.zeros((12, 12))
+        # Position derivatives
+        A[0:3, 3:6] = np.eye(3)
+        # Lateral acceleration due to attitude error:
+        # x-axis acceleration: ax = +g * (θ_error)  →  A[3, 7] = g
+        # y-axis acceleration: ay = -g * (φ_error)  →  A[4, 6] = -g
+        A[3, 7] = self.g
+        A[4, 6] = -self.g
+        # Attitude error dynamics: derivative of attitude error = angular velocity error
+        A[6:9, 9:12] = np.eye(3)
+        # B matrix: control inputs: [delta_thrust, Mx, My, Mz]
+        B = np.zeros((12, 4))
+        # Thrust affects only the vertical acceleration (assumed z direction index 5)
+        B[5, 0] = 1 / self.mass
+        # Moments affect angular acceleration
+        B[9, 1] = 1 / self.Ixx
+        B[10, 2] = 1 / self.Iyy
+        B[11, 3] = 1 / self.Izz
 
-        A = np.array([[0, 0, 0, v*theta+w*psi, v*phi+w, -v+w*phi, 1, theta*phi-psi, theta+psi*phi, 0, 0, 0], #x
-                      [0, 0, 0, v*psi*theta-w, v*psi*phi+w*psi, u+v*theta*phi+w*theta, psi, psi*theta*phi+1, psi*theta-phi, 0, 0, 0], #y
-                      [0, 0, 0, v, -u, 0, -theta, phi, 1, 0, 0, 0], #z
-                      [0, 0, 0, q*theta, q*phi+r, 0, 0, 0, 0, 1, phi*theta, theta], #phi
-                      [0, 0, 0, -r, 0, 0, 0, 0, 0, 0, 1, -phi], #theta
-                      [0, 0, 0, q, 0, 0, 0, 0, 0, 0, phi, 1], #psi
-                      [0, 0, 0, 0, self.g, 0, 0, r, -q, 0, -w, v], #u
-                      [0, 0, 0, -self.g, 0, 0, -r, 0, p, w, 0, -u], #v
-                      [0, 0, 0, 0, 0, 0, q, -p, 0, -v, u, 0], #w
-                      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, r*(self.Iyy-self.Izz)/self.Ixx, q*(self.Iyy-self.Izz)/self.Ixx], #p
-                      [0, 0, 0, 0, 0, 0, 0, 0, 0, r*(self.Izz-self.Ixx)/self.Iyy, 0, p*(self.Izz-self.Ixx)/self.Iyy], #q
-                      [0, 0, 0, 0, 0, 0, 0, 0, 0, q*(self.Ixx-self.Iyy)/self.Izz, p*(self.Ixx-self.Iyy)/self.Izz, 0]]) #r
-        
-        B = np.array([[0, 0, 0, 0],
-                      [0, 0, 0, 0],
-                      [0, 0, 0, 0],
-                      [0, 0, 0, 0],
-                      [0, 0, 0, 0],
-                      [0, 0, 0, 0],
-                      [0, 0, 0, 0],
-                      [0, 0, 0, 0],
-                      [1/self.mass, 0, 0, 0],
-                      [0, 1/self.Ixx, 0, 0],
-                      [0, 0, 1/self.Iyy, 0],
-                      [0, 0, 0, 1/self.Izz]])
+        # Define cost matrices (tune these weights as required)
+        Q = np.diag([1e1, 1e1, 1e1,    # pos error weights
+                     1e1, 1e1, 1e1,    # velocity error weights
+                     1e2, 1e2, 1e2,    # attitude error weights
+                     1e-3, 1e-3, 1e-3])  # angular velocity error weights
 
+        R = np.diag([1e-1, 1e3, 1e3, 1e3])  # cost for [delta_thrust, Mx, My, Mz]
 
-        Q = np.diag([1e1, 1e1, 1e2, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6])
-        #x, y, z, phi, theta, psi, u, v, w, p, q, r
-        R = np.diag([1e-1, 1e3, 1e3, 1e3])
-        #Thrust, Mx, My, Mz
-
+        # Compute LQR gain matrix
         K, _, _ = ct.lqr(A, B, Q, R)
-        # K[K < 1e-6] = 0
-        # K = [[0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-        #     [0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0], #Mx roll
-        #     [1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0], #My pitch
-        #     [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1]] 
-
         return K
 
     def reset(self):
@@ -109,37 +102,57 @@ class LQRControl(BaseControl):
                        cur_vel,
                        cur_ang_vel,
                        target_pos,
-                       target_rpy=np.zeros(3),
+                       target_rpy,  # target attitude as quaternion [x, y, z, w]
                        target_vel=np.zeros(3),
                        target_rpy_rates=np.zeros(3)):
-        
+        """
+        Inputs are in the inertial frame.
+        cur_quat and target_quat are provided as [x, y, z, w].
+        """
         self.control_counter += 1
 
-        cur_rpy = p.getEulerFromQuaternion(cur_quat)
-        cur_vel = Rotation.from_euler('XYZ', cur_rpy).inv().apply(cur_vel) # Convert velocity to body frame
-        target_vel = Rotation.from_euler('XYZ', target_rpy).inv().apply(target_vel) # Convert velocity to body frame
-        cur_ang_vel = Rotation.from_euler('XYZ', cur_rpy).inv().apply(cur_ang_vel) # Convert angular velocity to body frame
+        # Compute position and velocity errors in the inertial frame.
+        pos_error = target_pos - cur_pos
+        vel_error = target_vel - cur_vel
 
-        x = np.array([cur_pos[0], cur_pos[1], cur_pos[2], cur_rpy[0], cur_rpy[1], cur_rpy[2], cur_vel[0], cur_vel[1], cur_vel[2], cur_ang_vel[0], cur_ang_vel[1], cur_ang_vel[2]])
-        r = np.array([target_pos[0], target_pos[1], target_pos[2], target_rpy[0], target_rpy[1], target_rpy[2], target_vel[0], target_vel[1], target_vel[2], target_rpy_rates[0], target_rpy_rates[1], target_rpy_rates[2]])
+        # Compute attitude error: q_error = q_target * inv(q_current)
+        q_curr = Rotation.from_quat(cur_quat)
+        target_quat = Rotation.from_euler('xyz', target_rpy, degrees=True).as_quat()
+        q_target = Rotation.from_quat(target_quat)
+        # Compute the error quaternion. (For small errors, the corresponding rotation vector
+        # is an adequate representation.)
+        q_error = q_target * q_curr.inv()
+        # Ensure shortest path (if scalar part negative, invert)
+        q_error_arr = q_error.as_quat()  # [x, y, z, w]
+        if q_error_arr[3] < 0:
+            q_error_arr = -q_error_arr
+        # Convert error quaternion to rotation vector (attitude error)
+        att_error = Rotation.from_quat(q_error_arr).as_rotvec()
 
-        self.K = self._compute_K(phi=cur_rpy[0], theta=cur_rpy[1], psi=cur_rpy[2],
-                                 u=cur_vel[0], v=cur_vel[1], w=cur_vel[2],
-                                 p=cur_ang_vel[0], q=cur_ang_vel[1], r=cur_ang_vel[2])
+        # Angular velocity error (in inertial frame, or if you prefer body frame, adjust accordingly)
+        ang_vel_error = target_rpy_rates - cur_ang_vel
 
-        u = -np.dot(self.K, x - r)
-        
-        target_thrust = u[0]
-        target_torques = np.hstack((u[1], u[2], u[3]))
-        target_thrust = np.maximum(0, target_thrust)
+        # Assemble the error state vector.
+        # Ordering: [pos_error (3), vel_error (3), att_error (3), ang_vel_error (3)]
+        x_error = np.hstack((pos_error, vel_error, att_error, ang_vel_error))
 
-        thrust = (math.sqrt(target_thrust / (4*self.KF)) - self.PWM2RPM_CONST) / self.PWM2RPM_SCALE
+        # Compute control input: u = -K x_error.
+        # Here, u[0] is the additional thrust required (delta_thrust) and u[1:4] are the moments.
+        u = -np.dot(self.K, x_error)
+
+        # The nominal thrust to hover is mass * g, so add it:
+        target_thrust = u[0] + self.mass * self.g
+        # The thrust must be nonnegative.
+        target_thrust = max(target_thrust, 0)
+        target_torques = u[1:4]
+
+        # Convert thrust and torques into PWM commands.
+        # The conversion here assumes a mapping defined by:
+        # pwm = thrust_component + MIXER_MATRIX * torques, with appropriate scaling.
+        thrust = (math.sqrt(target_thrust / (4 * self.KF)) - self.PWM2RPM_CONST) / self.PWM2RPM_SCALE
         target_torques = np.clip(target_torques, -3200, 3200)
         pwm = thrust + np.dot(self.MIXER_MATRIX, target_torques)
         pwm = np.clip(pwm, self.MIN_PWM, self.MAX_PWM)
         rpm = self.PWM2RPM_SCALE * pwm + self.PWM2RPM_CONST
 
-        pos_e = target_pos - cur_pos
-        rpy_e = target_rpy - cur_rpy
-
-        return rpm, pos_e, rpy_e
+        return rpm, pos_error, att_error

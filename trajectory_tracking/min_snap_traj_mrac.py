@@ -24,7 +24,7 @@ DEFAULT_USER_DEBUG_GUI = False
 DEFAULT_OBSTACLES = False
 DEFAULT_SIMULATION_FREQ_HZ = 240
 DEFAULT_CONTROL_FREQ_HZ = 120
-DEFAULT_DURATION_SEC = 60
+DEFAULT_DURATION_SEC = 20
 DEFAULT_OUTPUT_FOLDER = 'results'
 DEFAULT_COLAB = False
 
@@ -50,10 +50,13 @@ def run(
     TARGET_WAYPOINTS = np.array([[0,0,0], [1.8, 1.2, 0.9], [1.5, -1.7, 0.5], [0.3, 1.9, 1.2], [-2, 0.8, 1.7], [1.8, 1.2, 0.9],
                                  [-1.3, -1.5, 0.8],[2.1, -0.9, 1.3], [0.5, 2.4, 1.0],  [-1.8, 0.5, 1.5], [1.2, -2.2, 0.7]])
     
-    TARGET_WAYPOINTS = np.array([[0,0,0],
-                                [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1],
-                                [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1], 
-                                [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1]])
+    # TARGET_WAYPOINTS = np.array([[0,0,0],
+    #                             [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1],
+    #                             [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1], 
+    #                             [-1, 0, 1], [1, 0, 1], [-1, 0, 1], [1, 0, 1]])
+
+    TARGET_WAYPOINTS = np.array([[1.8, 1.2, 0.9], [1.5, -1.7, 0.5], [0.3, 1.9, 1.2], [-2, 0.8, 1.7], [1.8, 1.2, 0.9]])
+
     TARGET_RPY = np.array([[0, 0, 0]])
 
     coeff_x, coeff_y, coeff_z = get_MST_coefficients(TARGET_WAYPOINTS)
@@ -99,7 +102,7 @@ def run(
         state = generate_trajectory(t, v, TARGET_WAYPOINTS, coeff_x, coeff_y, coeff_z)
 
         for j in range(num_drones):
-            action[j,:], X_actual, Xm, error = ctrl[j].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
+            action[j,:], X_actual, Xm = ctrl[j].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
                                                                 state=obs[j],
                                                                 target_pos=state.pos,
                                                                 target_vel=state.vel,
@@ -107,7 +110,6 @@ def run(
             
         X_actual_list.append(X_actual)
         Xm_list.append(Xm)
-        error_list.append(error)
         target_list.append(np.hstack((state.pos, TARGET_RPY[0, :], state.vel, np.zeros(3))))
             
         #### Log the simulation ####################################
