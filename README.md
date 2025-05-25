@@ -30,17 +30,7 @@ In this final year project, we:
 
 ## Examples & Results
 
-### 🌀 Formation Control
-
-**Circular formation with 20 quadrotors using consensus algorithm**
-![Circular formation](result_plots/circle_formation.png)
-
-**Line-to-V formation transition**
-![Line-to-V formation](result_plots/line_v_formation.png)
-
----
-
-### 📍 Position Control
+### Position Control
 
 **PID-based position control**
 ![PID Position Control](result_plots/pid_position_control.png)
@@ -48,15 +38,12 @@ In this final year project, we:
 **MRAC-based position control**
 ![MRAC Position Control](result_plots/mrac_position_control.png)
 
-**LQR-based position control**
-![LQR Position Control](result_plots/lqr_position_control.png)
-
 **RL-based position control**
 ![RL Position Control](result_plots/rl_position_control.png)
 
 ---
 
-### 🚀 Trajectory Tracking
+### Trajectory Tracking
 
 **MRAC on a minimum-snap trajectory**
 ![MRAC Trajectory Tracking](result_plots/mrac_trajectory_tracking.png)
@@ -64,6 +51,34 @@ In this final year project, we:
 **PID on a minimum-snap trajectory**
 ![PID Trajectory Tracking](result_plots/pid_trajectory_tracking.png)
 
+### Multi-Quadrotor Control
+For multi-quadrotor experiments, data is presented in a four panel plot:
+- Top left: 3D trajectories of each quadrotor.
+- Top right: 2D projection of trajectories on the x and yaxes.
+- Bottom left: Evolution of mean inter-drone distance.
+- Bottom right: Evolution of mean error distance between
+the state and the setpoint.
+
+#### Formation Control
+
+**Circular formation with 10 quadrotors**
+![Circular formation](result_plots/circle_formation.png)
+
+**Line-to-V formation transition**
+![Line-to-V formation](result_plots/line_v_formation.png)
+*Transition from a line formation to a V formation. The spike in distances indicates the transition period.*
+
+---
+
+#### Consensus and Behavioral Control
+
+**Consensus algorithm**
+![Consensus](result_plots/concensus.png)
+
+**Behavioral control**
+![Behavioral](result_plots/behaviour.png)
+
+*Convergence of drones into a stable formation via separation, alignment, and cohesion rules*
 
 ## Folder Structure
 ```
