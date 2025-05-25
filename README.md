@@ -14,7 +14,7 @@ In this final year project, we:
 
 ## Features
 
-- **Dynamics & State Estimation**: Quaternion- and Euler-based state-space models with Kalman filtering.
+- **Dynamics**: Quaternion- and Euler-based state-space models.
 - **Controllers**:
   - PID with hierarchical loops
   - LQR with integral action
@@ -26,7 +26,44 @@ In this final year project, we:
   - Collision avoidance via potential fields
   - Decentralized consensus algorithm
   - Behavioral (separation, alignment, cohesion)
-- **Simulation Environment**: Gym-PyBullet-Drones integration for testing controllers and formations.
+- **Simulation Environment**: `gym-pybullet-drones` integration for testing controllers and formations.
+
+## Examples & Results
+
+### 🌀 Formation Control
+
+**Circular formation with 20 quadrotors using consensus algorithm**
+![Circular formation](result_plots/circle_formation.png)
+
+**Line-to-V formation transition**
+![Line-to-V formation](result_plots/line_v_formation.png)
+
+---
+
+### 📍 Position Control
+
+**PID-based position control**
+![PID Position Control](result_plots/pid_position_control.png)
+
+**MRAC-based position control**
+![MRAC Position Control](result_plots/mrac_position_control.png)
+
+**LQR-based position control**
+![LQR Position Control](result_plots/lqr_position_control.png)
+
+**RL-based position control**
+![RL Position Control](result_plots/rl_position_control.png)
+
+---
+
+### 🚀 Trajectory Tracking
+
+**MRAC on a minimum-snap trajectory**
+![MRAC Trajectory Tracking](result_plots/mrac_trajectory_tracking.png)
+
+**PID on a minimum-snap trajectory**
+![PID Trajectory Tracking](result_plots/pid_trajectory_tracking.png)
+
 
 ## Folder Structure
 ```
