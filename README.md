@@ -29,4 +29,35 @@ In this final year project, we:
 - **Simulation Environment**: Gym-PyBullet-Drones integration for testing controllers and formations.
 
 ## Folder Structure
+```
+├── LICENSE # Project license (MIT)
+├── README.md # This file
+├── circle_formation.png # Formation example: circular
+├── line_v_formation.png # Formation example: line-to-V
+├── consensus.py # Consensus-based control script
+├── controllers/ # Controller implementations
+│ ├── lqr.py
+│ ├── pid_controller.py
+│ ├── mrac.py
+│ └── rl_controller.py
+├── envs/ # Custom gym environments
+│ ├── PositionAviary.py
+│ └── SwarmAreaEnv.py
+├── get_results_*.ipynb # Notebooks for result generation
+├── multi_quad_control/ # Scripts for multi-quad behaviors
+│ ├── behaviour.py
+│ └── leader_follower.py
+├── position_control/ # Position control experiments
+│ ├── position_control_pid.py
+│ └── position_control_rl.py
+├── result_plots/ # Generated result images
+├── results/ # Saved model checkpoints & evaluations
+├── samples/ # Example scripts and tests
+├── system_analysis.ipynb # System-level analysis and notes
+├── task_solving/ # Task-solving modules
+├── trajectory_tracking/ # Trajectory tracking scripts
+└── utils/ # Utility functions
+```
 
+## Contributing
+Contributions are welcome. Feel free to open issues or pull requests.
