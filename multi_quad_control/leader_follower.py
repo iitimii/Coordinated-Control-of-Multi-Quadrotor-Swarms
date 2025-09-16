@@ -17,7 +17,7 @@ from utils.utils import initialize_drones
 
 # Default parameters
 DEFAULT_DRONES = DroneModel("cf2x")
-DEFAULT_NUM_DRONES = 20
+DEFAULT_NUM_DRONES = 10
 DEFAULT_PHYSICS = Physics("pyb")
 DEFAULT_GUI = True
 DEFAULT_RECORD_VISION = False
